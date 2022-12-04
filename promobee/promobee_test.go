@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cfunkhouser/egobee"
+	"github.com/jdgeenen/egobee"
 )
 
 func TestAccumulator_ServeThermostatList(t *testing.T) {

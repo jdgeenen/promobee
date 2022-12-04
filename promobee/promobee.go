@@ -9,18 +9,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cfunkhouser/egobee"
+	"github.com/jdgeenen/egobee"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type thermostatMetrics struct {
-	tempMetric      *prometheus.GaugeVec
-	hvacModeMetric  *prometheus.GaugeVec
-	holdTempMetric  *prometheus.GaugeVec
-	hvacInOperation *prometheus.GaugeVec
-	humidityMetric  *prometheus.GaugeVec
-	occupancyMetric *prometheus.GaugeVec
+	tempMetric        *prometheus.GaugeVec
+	hvacModeMetric    *prometheus.GaugeVec
+	holdTempMetric    *prometheus.GaugeVec
+	hvacInOperation   *prometheus.GaugeVec
+	humidityMetric    *prometheus.GaugeVec
+	occupancyMetric   *prometheus.GaugeVec
+	airQualityMetric  *prometheus.GaugeVec
+	vocPpmMetric      *prometheus.GaugeVec
+	co2PpmMetric      *prometheus.GaugeVec
 }
 
 func newThermostatMetrics() *thermostatMetrics {
@@ -58,7 +61,24 @@ func newThermostatMetrics() *thermostatMetrics {
 				Help: "Humidity as reported by an Ecobee sensor.",
 			},
 			[]string{"location"}),
-
+		airQualityMetric: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "ecobee_air_quality",
+				Help: "Air Quality as reported by an Ecobee sensor.",
+			},
+			[]string{"location"}),
+		vocPpmMetric: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "volatile_organic_compounds_ppb",
+				Help: "Total Volatile Organic Compound concentration in PPB as reported by an Ecobee sensor.",
+			},
+			[]string{"location"}),
+		co2PpmMetric: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "carbon_dioxide_ppm",
+				Help: "CO2 concentration in PPM as reported by an Ecobee sensor.",
+			},
+			[]string{"location"}),
 		occupancyMetric: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "occupancy",
@@ -119,6 +139,10 @@ func (a *Accumulator) poll() error {
 		m := a.metricsForThermostatIdentifier(&thermostat.Identifier)
 
 		m.holdTempMetric.Reset()
+
+		m.vocPpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(thermostat.Runtime.ActualVoc))
+		m.co2PpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(thermostat.Runtime.ActualCo2))
+		m.airQualityMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(thermostat.Runtime.ActualAQScore))
 
 		if thermostat.Settings.HVACMode != "off" {
 			for _, event := range thermostat.Events {
@@ -225,7 +249,7 @@ func (a *Accumulator) ServeThermostat(w http.ResponseWriter, req *http.Request) 
 	}
 
 	registry := prometheus.NewRegistry()
-	metrics := []*prometheus.GaugeVec{t.tempMetric, t.occupancyMetric, t.humidityMetric, t.holdTempMetric, t.hvacInOperation, t.hvacModeMetric}
+	metrics := []*prometheus.GaugeVec{t.tempMetric, t.occupancyMetric, t.humidityMetric, t.airQualityMetric, t.co2PpmMetric, t.vocPpmMetric, t.holdTempMetric, t.hvacInOperation, t.hvacModeMetric}
 	for _, m := range metrics {
 		if err := registry.Register(m); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

@@ -10,11 +10,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/cfunkhouser/egobee"
+	"github.com/jdgeenen/egobee"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	cli "github.com/urfave/cli/v2"
 
-	"github.com/cfunkhouser/promobee/promobee"
+	"github.com/jdgeenen/promobee/promobee"
 )
 
 const (

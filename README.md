@@ -65,7 +65,7 @@ $ docker run -d \
     --name promobee \
     -p 8080:8080 \
     --mount source=promobee-datastore,target=/var/run/promobee \
-    cfunkhouser/promobee:latest \
+    jdgeenen/promobee:latest \
     -- $ECOBEE_API_KEY
 ```
 
