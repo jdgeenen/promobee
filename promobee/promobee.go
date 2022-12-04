@@ -15,15 +15,16 @@ import (
 )
 
 type thermostatMetrics struct {
-	tempMetric        *prometheus.GaugeVec
-	hvacModeMetric    *prometheus.GaugeVec
-	holdTempMetric    *prometheus.GaugeVec
-	hvacInOperation   *prometheus.GaugeVec
-	humidityMetric    *prometheus.GaugeVec
-	occupancyMetric   *prometheus.GaugeVec
-	airQualityMetric  *prometheus.GaugeVec
-	vocPpmMetric      *prometheus.GaugeVec
-	co2PpmMetric      *prometheus.GaugeVec
+	tempMetric       *prometheus.GaugeVec
+	hvacModeMetric   *prometheus.GaugeVec
+	holdTempMetric   *prometheus.GaugeVec
+	hvacInOperation  *prometheus.GaugeVec
+	humidityMetric   *prometheus.GaugeVec
+	occupancyMetric  *prometheus.GaugeVec
+	airQualityMetric *prometheus.GaugeVec
+	vocPpbMetric     *prometheus.GaugeVec
+	co2PpmMetric     *prometheus.GaugeVec
+	pressureMetric   *prometheus.GaugeVec
 }
 
 func newThermostatMetrics() *thermostatMetrics {
@@ -67,7 +68,7 @@ func newThermostatMetrics() *thermostatMetrics {
 				Help: "Air Quality as reported by an Ecobee sensor.",
 			},
 			[]string{"location"}),
-		vocPpmMetric: prometheus.NewGaugeVec(
+		vocPpbMetric: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "volatile_organic_compounds_ppb",
 				Help: "Total Volatile Organic Compound concentration in PPB as reported by an Ecobee sensor.",
@@ -85,6 +86,12 @@ func newThermostatMetrics() *thermostatMetrics {
 				Help: "Occupancy as reported by an Ecobee sensor.",
 			},
 			[]string{"location"}),
+		pressureMetric: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "air_pressure_hectopascal",
+				Help: "Outside air pressure.",
+			},
+			[]string{"location"}),
 	}
 }
 
@@ -95,6 +102,7 @@ var thermostatSelection = &egobee.Selection{
 	IncludeRuntime:  true,
 	IncludeSensors:  true,
 	IncludeSettings: true,
+	IncludeWeather:  true,
 }
 
 // Accumulator of Ecobee information for reexport.
@@ -138,13 +146,24 @@ func (a *Accumulator) poll() error {
 		}
 		m := a.metricsForThermostatIdentifier(&thermostat.Identifier)
 
-		m.holdTempMetric.Reset()
-
 		if thermostat.Runtime.ActualVoc != nil {
-			m.vocPpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(*thermostat.Runtime.ActualVoc))
-			m.co2PpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(*thermostat.Runtime.ActualCo2))
-			m.airQualityMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(*thermostat.Runtime.ActualAQScore))
+			voc := float64(*thermostat.Runtime.ActualVoc)
+			m.vocPpbMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(voc)
+			co2 := float64(*thermostat.Runtime.ActualCo2)
+			m.co2PpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(co2)
+			airQuality := float64(*thermostat.Runtime.ActualAQScore)
+			m.airQualityMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(airQuality)
 		}
+
+		weatherStation := thermostat.Weather.WeatherStation
+		temperature := float64(thermostat.Weather.Forecasts[0].Temperature) / 10
+		m.tempMetric.With(prometheus.Labels{"location": weatherStation}).Set(temperature)
+		pressure := float64(thermostat.Weather.Forecasts[0].Pressure)
+		m.pressureMetric.With(prometheus.Labels{"location": weatherStation}).Set(pressure)
+		humidity := float64(thermostat.Weather.Forecasts[0].RelativeHumidity)
+		m.humidityMetric.With(prometheus.Labels{"location": weatherStation}).Set(humidity)
+
+		m.holdTempMetric.Reset()
 
 		if thermostat.Settings.HVACMode != "off" {
 			for _, event := range thermostat.Events {
@@ -251,7 +270,7 @@ func (a *Accumulator) ServeThermostat(w http.ResponseWriter, req *http.Request) 
 	}
 
 	registry := prometheus.NewRegistry()
-	metrics := []*prometheus.GaugeVec{t.tempMetric, t.occupancyMetric, t.humidityMetric, t.airQualityMetric, t.co2PpmMetric, t.vocPpmMetric, t.holdTempMetric, t.hvacInOperation, t.hvacModeMetric}
+	metrics := []*prometheus.GaugeVec{t.tempMetric, t.occupancyMetric, t.humidityMetric, t.airQualityMetric, t.co2PpmMetric, t.vocPpbMetric, t.pressureMetric, t.holdTempMetric, t.hvacInOperation, t.hvacModeMetric}
 	for _, m := range metrics {
 		if err := registry.Register(m); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
