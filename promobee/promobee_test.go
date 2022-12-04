@@ -5,8 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/jdgeenen/egobee"
 )
 
 func TestAccumulator_ServeThermostatList(t *testing.T) {
@@ -45,7 +43,8 @@ func TestAccumulator_metricsForThermostat_doesNotExist(t *testing.T) {
 	testAccumulator := &Accumulator{
 		thermostats: make(map[string]*thermostatMetrics),
 	}
-	got := testAccumulator.metricsForThermostatIdentifier(&egobee.Thermostat{Identifier: "foo"})
+    identifier := "foo"
+	got := testAccumulator.metricsForThermostatIdentifier(&identifier)
 	if got == nil {
 		t.Errorf("Accumulator.metricsForThermostatIdentifier(...) returned nil; it should never do that.")
 	}
@@ -61,7 +60,8 @@ func TestAccumulator_metricsForThermostat_doesExist(t *testing.T) {
 			"foo": tm,
 		},
 	}
-	got := testAccumulator.metricsForThermostatIdentifier(&egobee.Thermostat{Identifier: "foo"})
+    identifier := "foo"
+	got := testAccumulator.metricsForThermostatIdentifier(&identifier)
 	if got == nil {
 		t.Errorf("Accumulator.metricsForThermostatIdentifier(...) returned nil; it should never do that.")
 	}
