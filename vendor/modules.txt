@@ -10,7 +10,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/jdgeenen/egobee v0.0.0-20221204163212-7f321c099319
+# github.com/jdgeenen/egobee v0.0.0-20221204175714-d390fb448987
 github.com/jdgeenen/egobee
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil

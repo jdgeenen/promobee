@@ -140,9 +140,11 @@ func (a *Accumulator) poll() error {
 
 		m.holdTempMetric.Reset()
 
-		m.vocPpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(thermostat.Runtime.ActualVoc))
-		m.co2PpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(thermostat.Runtime.ActualCo2))
-		m.airQualityMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(thermostat.Runtime.ActualAQScore))
+		if thermostat.Runtime.ActualVoc != nil {
+			m.vocPpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(*thermostat.Runtime.ActualVoc))
+			m.co2PpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(*thermostat.Runtime.ActualCo2))
+			m.airQualityMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(float64(*thermostat.Runtime.ActualAQScore))
+		}
 
 		if thermostat.Settings.HVACMode != "off" {
 			for _, event := range thermostat.Events {
