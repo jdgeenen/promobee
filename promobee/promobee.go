@@ -147,7 +147,7 @@ func (a *Accumulator) poll() error {
 		m := a.metricsForThermostatIdentifier(&thermostat.Identifier)
 
 		if thermostat.Runtime.ActualVoc != nil {
-			voc := float64(*thermostat.Runtime.ActualVoc)
+			voc := float64(*thermostat.Runtime.ActualVoc) / 4.09 // ug/m^3 to ppb
 			m.vocPpbMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(voc)
 			co2 := float64(*thermostat.Runtime.ActualCo2)
 			m.co2PpmMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(co2)
