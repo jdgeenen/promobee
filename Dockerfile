@@ -1,13 +1,22 @@
-FROM golang:1.13 AS builder
-LABEL maintainer="Christian Funkhouser <christian@funkhouse.rs>"
+FROM golang:1.23 AS builder
 
 COPY . ./build/promobee/
-RUN cd ./build/promobee && go build -mod=vendor -o /promobee .
+RUN cd ./build/promobee && go build -mod=vendor -o /promobee
 
-# Copy from builder image to keep the size down. Resulting image should only
-# contain the promobee binary itself.
-FROM golang:1.13
-COPY --from=builder /promobee .
+FROM ubuntu:24.04
+RUN echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/00-docker
+RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
+RUN DEBIAN_FRONTEND=noninteractive \
+  apt update \
+  && apt dist-upgrade -y \
+  && apt install -y openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 EXPOSE 8080
-VOLUME ["/var/run/promobee"]
-ENTRYPOINT [ "./promobee", "--store", "/var/run/promobee/promobee.store", "--api_key" ]
+RUN useradd -m -u 586 prunner
+RUN passwd -l root
+USER prunner
+WORKDIR /home/prunner
+RUN mkdir bin
+COPY --from=builder /promobee bin/.
+ENTRYPOINT [ "bin/promobee", "--store", "keys/kstore", "--api_key", "$ECOBEE_API_KEY" ]
