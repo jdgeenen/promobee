@@ -13,10 +13,11 @@ RUN DEBIAN_FRONTEND=noninteractive \
   && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8080
-RUN useradd -m -u 586 prunner
+RUN groupadd -g 568 prunner
+RUN useradd -m -u 568 -g 568 prunner
 RUN passwd -l root
 USER prunner
 WORKDIR /home/prunner
 RUN mkdir bin
 COPY --from=builder /promobee bin/.
-ENTRYPOINT [ "bin/promobee", "--store", "keys/kstore", "--api_key", "$ECOBEE_API_KEY" ]
+ENTRYPOINT [ "bin/promobee", "--store", "keys/kstore", "--api_key"]
