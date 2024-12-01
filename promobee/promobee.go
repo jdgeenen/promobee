@@ -15,16 +15,18 @@ import (
 )
 
 type thermostatMetrics struct {
-	tempMetric       *prometheus.GaugeVec
-	hvacModeMetric   *prometheus.GaugeVec
-	holdTempMetric   *prometheus.GaugeVec
-	hvacInOperation  *prometheus.GaugeVec
-	humidityMetric   *prometheus.GaugeVec
-	occupancyMetric  *prometheus.GaugeVec
-	airQualityMetric *prometheus.GaugeVec
-	vocPpbMetric     *prometheus.GaugeVec
-	co2PpmMetric     *prometheus.GaugeVec
-	pressureMetric   *prometheus.GaugeVec
+	tempMetric         *prometheus.GaugeVec
+	hvacModeMetric     *prometheus.GaugeVec
+	holdTempMetric     *prometheus.GaugeVec
+	hvacInOperation    *prometheus.GaugeVec
+	humidityMetric     *prometheus.GaugeVec
+	occupancyMetric    *prometheus.GaugeVec
+	airQualityMetric   *prometheus.GaugeVec
+	vocPpbMetric       *prometheus.GaugeVec
+	co2PpmMetric       *prometheus.GaugeVec
+	pressureMetric     *prometheus.GaugeVec
+	coolingStateMetric *prometheus.GaugeVec
+	heatingStateMetric *prometheus.GaugeVec
 }
 
 func newThermostatMetrics() *thermostatMetrics {
@@ -86,6 +88,18 @@ func newThermostatMetrics() *thermostatMetrics {
 				Help: "Occupancy as reported by an Ecobee sensor.",
 			},
 			[]string{"location"}),
+		heatingStateMetric: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "heating_state",
+				Help: "System is actively heating.",
+			},
+			[]string{"location"}),
+		coolingStateMetric: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "cooling_state",
+				Help: "System is actively cooling.",
+			},
+			[]string{"location"}),
 		pressureMetric: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "air_pressure_hectopascal",
@@ -96,13 +110,14 @@ func newThermostatMetrics() *thermostatMetrics {
 }
 
 var thermostatSelection = &egobee.Selection{
-	SelectionType:   egobee.SelectionTypeRegistered,
-	IncludeDevice:   true,
-	IncludeEvents:   true,
-	IncludeRuntime:  true,
-	IncludeSensors:  true,
-	IncludeSettings: true,
-	IncludeWeather:  true,
+	SelectionType:   	egobee.SelectionTypeRegistered,
+	IncludeDevice:   	true,
+	IncludeEvents:   	true,
+	IncludeRuntime:  	true,
+	IncludeSensors:  	true,
+	IncludeSettings:	true,
+	IncludeWeather:		true,
+	IncludeEquipmentStatus:	true,
 }
 
 // Accumulator of Ecobee information for reexport.
@@ -162,6 +177,16 @@ func (a *Accumulator) poll() error {
 		m.pressureMetric.With(prometheus.Labels{"location": weatherStation}).Set(pressure)
 		humidity := float64(thermostat.Weather.Forecasts[0].RelativeHumidity)
 		m.humidityMetric.With(prometheus.Labels{"location": weatherStation}).Set(humidity)
+
+		m.heatingStateMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(0)
+		m.coolingStateMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(0)
+
+		equipmentStatus := thermostat.EquipmentStatus
+		if strings.Contains(strings.ToLower(equipmentStatus), "heat") {
+			m.heatingStateMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(1)
+		} else if strings.Contains(strings.ToLower(equipmentStatus), "cool") {
+			m.coolingStateMetric.With(prometheus.Labels{"location": thermostat.Name}).Set(1)
+		}
 
 		m.holdTempMetric.Reset()
 
@@ -270,7 +295,7 @@ func (a *Accumulator) ServeThermostat(w http.ResponseWriter, req *http.Request) 
 	}
 
 	registry := prometheus.NewRegistry()
-	metrics := []*prometheus.GaugeVec{t.tempMetric, t.occupancyMetric, t.humidityMetric, t.airQualityMetric, t.co2PpmMetric, t.vocPpbMetric, t.pressureMetric, t.holdTempMetric, t.hvacInOperation, t.hvacModeMetric}
+	metrics := []*prometheus.GaugeVec{t.tempMetric, t.occupancyMetric, t.humidityMetric, t.airQualityMetric, t.co2PpmMetric, t.vocPpbMetric, t.pressureMetric, t.holdTempMetric, t.hvacInOperation, t.hvacModeMetric, t.heatingStateMetric, t.coolingStateMetric}
 	for _, m := range metrics {
 		if err := registry.Register(m); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
